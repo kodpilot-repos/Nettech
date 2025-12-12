@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/api/useAuth';
 import { useApiRequest } from '../hooks/api/useApiRequest';
 import userService from '../api/services/userService';
@@ -10,6 +10,10 @@ import colors from '../theme/colors';
 function ProfileScreen() {
   const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth();
   const { data: profile, loading, error, execute } = useApiRequest<User>();
+  const insets = useSafeAreaInsets();
+
+  // Tab bar height: 56px + bottom inset
+  const TAB_BAR_HEIGHT = 56;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -19,8 +23,8 @@ function ProfileScreen() {
 
   if (authLoading || loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
           <ActivityIndicator size="large" color="#F99D26" />
           <Text style={styles.loadingText}>Yükleniyor...</Text>
         </View>
@@ -30,8 +34,8 @@ function ProfileScreen() {
 
   if (!isAuthenticated) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
           <Text style={styles.title}>Profil</Text>
           <Text style={styles.subtitle}>Giriş Yapmanız Gerekiyor</Text>
           <Text style={styles.description}>
@@ -44,8 +48,8 @@ function ProfileScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.content}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
           <Text style={styles.errorTitle}>Hata</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
@@ -62,8 +66,8 @@ function ProfileScreen() {
   const userData = profile || user;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
         <Text style={styles.title}>Profil</Text>
 
         <View style={styles.infoContainer}>

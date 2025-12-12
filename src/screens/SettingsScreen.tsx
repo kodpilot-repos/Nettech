@@ -1,12 +1,17 @@
 import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 
 function SettingsScreen() {
+  const insets = useSafeAreaInsets();
+
+  // Tab bar height: 56px + bottom inset
+  const TAB_BAR_HEIGHT = 56;
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={[styles.content, { paddingBottom: TAB_BAR_HEIGHT + insets.bottom }]}>
         <Text style={styles.title}>Ayarlar</Text>
         <Text style={styles.subtitle}>Çok Yakında</Text>
         <Text style={styles.description}>

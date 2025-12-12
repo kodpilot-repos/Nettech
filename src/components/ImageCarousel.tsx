@@ -173,15 +173,6 @@ function ImageCarousel({
           ))}
         </View>
       )}
-
-      {/* Image Counter */}
-      {imageList.length > 1 && (
-        <View style={styles.counter}>
-          <Text style={styles.counterText}>
-            {activeIndex + 1} / {imageList.length}
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -207,7 +198,7 @@ const styles = StyleSheet.create({
     height: CAROUSEL_HEIGHT,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#fff',
   },
   image: {
     width: CAROUSEL_WIDTH - 40,

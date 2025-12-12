@@ -26,6 +26,27 @@ const TabItem: React.FC<TabItemProps> = ({
   onPress,
   onLongPress,
 }) => {
+  const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.spring(scaleAnim, {
+      toValue: isFocused ? 1 : 0,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 100,
+    }).start();
+  }, [isFocused, scaleAnim]);
+
+  const translateY = scaleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -12],
+  });
+
+  const scale = scaleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.15],
+  });
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -33,8 +54,18 @@ const TabItem: React.FC<TabItemProps> = ({
       style={styles.tabItem}
       activeOpacity={0.7}
     >
-      <View style={styles.iconContainer}>
-        {icon}
+      <View style={styles.iconWrapper}>
+        <Animated.View
+          style={[
+            styles.iconContainer,
+            isFocused && styles.activeIconContainer,
+            {
+              transform: [{ translateY }, { scale }],
+            },
+          ]}
+        >
+          {icon}
+        </Animated.View>
       </View>
       <Text
         style={[
@@ -62,7 +93,7 @@ const AnimatedTabBar: React.FC<BottomTabBarProps> = ({
 
   useEffect(() => {
     Animated.timing(translateY, {
-      toValue: isTabBarVisible ? 0 : 65 + insets.bottom,
+      toValue: isTabBarVisible ? 0 : 56 + insets.bottom,
       duration: 250,
       useNativeDriver: true,
     }).start();
@@ -74,7 +105,7 @@ const AnimatedTabBar: React.FC<BottomTabBarProps> = ({
         styles.container,
         {
           paddingBottom: insets.bottom,
-          height: 65 + insets.bottom,
+          height: 56 + insets.bottom,
           transform: [{ translateY }],
         },
       ]}
@@ -114,7 +145,7 @@ const AnimatedTabBar: React.FC<BottomTabBarProps> = ({
           const icon = options.tabBarIcon
             ? options.tabBarIcon({
                 focused: isFocused,
-                color: isFocused ? colors.primary : '#8E8E93',
+                color: isFocused ? '#FFFFFF' : '#8E8E93',
                 size: 24,
               })
             : null;
@@ -139,11 +170,22 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     borderTopColor: '#E5E5EA',
+    borderLeftColor: '#E5E5EA',
+    borderRightColor: '#E5E5EA',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 10,
   },
   tabBar: {
     flexDirection: 'row',
@@ -153,13 +195,29 @@ const styles = StyleSheet.create({
   tabItem: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingVertical: 4,
+  },
+  iconWrapper: {
+    height: 40,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    marginBottom: 0,
   },
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+  },
+  activeIconContainer: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   label: {
     fontSize: 11,

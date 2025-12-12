@@ -18,7 +18,11 @@ function App() {
     <AuthProvider>
       <TabBarProvider>
         <SafeAreaProvider>
-          <StatusBar barStyle="light-content" backgroundColor="#000" />
+          <StatusBar
+            barStyle="light-content"
+            backgroundColor="#000"
+            translucent={false}
+          />
           <NavigationContainer>
             <BottomTabNavigator />
           </NavigationContainer>

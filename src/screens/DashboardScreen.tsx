@@ -1,14 +1,85 @@
-import React, { useRef } from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useRef, useEffect, useCallback } from 'react';
+import { StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../hooks/api/useAuth';
 import { useTabBar } from '../context/TabBarContext';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+
+const AUTO_HIDE_DELAY = 4000; // 4 saniye sonra otomatik kapanma
 
 function DashboardScreen() {
   const { setAuthToken } = useAuth();
-  const { isTabBarVisible, showTabBar, hideTabBar } = useTabBar();
+  const { isTabBarVisible, toggleTabBar, hideTabBar } = useTabBar();
   const webViewRef = useRef<WebView>(null);
+  const autoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Animasyon değerleri
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Ok animasyonu - tab bar durumuna göre döndür
+  useEffect(() => {
+    Animated.timing(rotateAnim, {
+      toValue: isTabBarVisible ? 1 : 0,
+      duration: 300,
+      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [isTabBarVisible, rotateAnim]);
+
+  // Pulse animasyonu - sürekli
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  // Otomatik kapanma timer'ı
+  const resetAutoHideTimer = useCallback(() => {
+    if (autoHideTimer.current) {
+      clearTimeout(autoHideTimer.current);
+    }
+    if (isTabBarVisible) {
+      autoHideTimer.current = setTimeout(() => {
+        hideTabBar();
+      }, AUTO_HIDE_DELAY);
+    }
+  }, [isTabBarVisible, hideTabBar]);
+
+  useEffect(() => {
+    resetAutoHideTimer();
+    return () => {
+      if (autoHideTimer.current) {
+        clearTimeout(autoHideTimer.current);
+      }
+    };
+  }, [isTabBarVisible, resetAutoHideTimer]);
+
+  const handleToggle = () => {
+    toggleTabBar();
+  };
+
+  // Rotasyon interpolasyonu
+  const rotate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
 
   // WebView içindeki localStorage/sessionStorage'dan token çekmek için inject edilecek JS
   const injectedJavaScript = `
@@ -135,36 +206,6 @@ function DashboardScreen() {
         return originalXHRSend.apply(this, arguments);
       };
 
-      // Scroll tracking için
-      let lastScrollY = window.scrollY;
-      let ticking = false;
-
-      function onScroll() {
-        const currentScrollY = window.scrollY;
-
-        if (currentScrollY > lastScrollY && currentScrollY > 50) {
-          // Aşağı scroll - tab bar'ı gizle
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'SCROLL_DOWN'
-          }));
-        } else if (currentScrollY < lastScrollY) {
-          // Yukarı scroll - tab bar'ı göster
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'SCROLL_UP'
-          }));
-        }
-
-        lastScrollY = currentScrollY;
-        ticking = false;
-      }
-
-      window.addEventListener('scroll', function() {
-        if (!ticking) {
-          window.requestAnimationFrame(onScroll);
-          ticking = true;
-        }
-      });
-
       console.log('✅ React Native WebView injection completed');
       true;
     })();
@@ -180,14 +221,6 @@ function DashboardScreen() {
           if (data.token && data.user) {
             await setAuthToken(data.token, data.user);
           }
-          break;
-
-        case 'SCROLL_DOWN':
-          hideTabBar();
-          break;
-
-        case 'SCROLL_UP':
-          showTabBar();
           break;
 
         case 'FETCH_REQUEST':
@@ -221,6 +254,26 @@ function DashboardScreen() {
         onMessage={handleWebViewMessage}
         injectedJavaScript={injectedJavaScript}
       />
+      {/* Floating Arrow Button - Centered */}
+      <TouchableOpacity
+        style={styles.floatingButton}
+        onPress={handleToggle}
+        activeOpacity={0.7}
+      >
+        <Animated.View
+          style={[
+            styles.arrowContainer,
+            {
+              transform: [
+                { rotate },
+                { scale: isTabBarVisible ? 1 : pulseAnim },
+              ],
+            },
+          ]}
+        >
+          <Ionicons name="chevron-up" size={32} color="rgba(0, 0, 0, 0.6)" />
+        </Animated.View>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -232,6 +285,25 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
+  },
+  floatingButton: {
+    position: 'absolute',
+    bottom: 12,
+    alignSelf: 'center',
+    width: 60,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  arrowContainer: {
+    width: 60,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
 });
 

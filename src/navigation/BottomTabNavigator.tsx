@@ -8,7 +8,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import DashboardScreen from '../screens/DashboardScreen';
 import CameraStackNavigator from './CameraStackNavigator';
-import ProfileScreen from '../screens/ProfileScreen';
+import NotificationScreen from '../screens/NotificationScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -20,8 +20,8 @@ const renderTabBarIcon = (route: any, focused: boolean, color: string, size: num
     iconName = focused ? 'home' : 'home-outline';
   } else if (route.name === 'CameraStack') {
     iconName = focused ? 'camera' : 'camera-outline';
-  } else if (route.name === 'Profile') {
-    iconName = focused ? 'account' : 'account-outline';
+  } else if (route.name === 'Notification') {
+    iconName = focused ? 'bell' : 'bell-outline';
   } else if (route.name === 'Settings') {
     iconName = focused ? 'cog' : 'cog-outline';
   } else {
@@ -72,10 +72,10 @@ function BottomTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
+        name="Notification"
+        component={NotificationScreen}
         options={{
-          tabBarLabel: 'Profil',
+          tabBarLabel: 'Bildirimler',
         }}
       />
       <Tab.Screen

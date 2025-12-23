@@ -1,7 +1,7 @@
 export type RootTabParamList = {
   Dashboard: undefined;
   CameraStack: undefined;
-  Profile: undefined;
+  Notification: undefined;
   Settings: undefined;
 };
 

@@ -1,85 +1,16 @@
-import React, { useRef, useEffect, useCallback } from 'react';
-import { StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
+import React, { useRef } from 'react';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import WebView, { WebViewMessageEvent } from 'react-native-webview';
 import { useAuth } from '../hooks/api/useAuth';
 import { useTabBar } from '../context/TabBarContext';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-
-const AUTO_HIDE_DELAY = 4000; // 4 saniye sonra otomatik kapanma
 
 function DashboardScreen() {
   const { setAuthToken } = useAuth();
-  const { isTabBarVisible, toggleTabBar, hideTabBar } = useTabBar();
+  const { showTabBar, hideTabBar } = useTabBar();
   const webViewRef = useRef<WebView>(null);
-  const autoHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Animasyon değerleri
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  // Ok animasyonu - tab bar durumuna göre döndür
-  useEffect(() => {
-    Animated.timing(rotateAnim, {
-      toValue: isTabBarVisible ? 1 : 0,
-      duration: 300,
-      easing: Easing.bezier(0.4, 0, 0.2, 1),
-      useNativeDriver: true,
-    }).start();
-  }, [isTabBarVisible, rotateAnim]);
-
-  // Pulse animasyonu - sürekli
-  useEffect(() => {
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [pulseAnim]);
-
-  // Otomatik kapanma timer'ı
-  const resetAutoHideTimer = useCallback(() => {
-    if (autoHideTimer.current) {
-      clearTimeout(autoHideTimer.current);
-    }
-    if (isTabBarVisible) {
-      autoHideTimer.current = setTimeout(() => {
-        hideTabBar();
-      }, AUTO_HIDE_DELAY);
-    }
-  }, [isTabBarVisible, hideTabBar]);
-
-  useEffect(() => {
-    resetAutoHideTimer();
-    return () => {
-      if (autoHideTimer.current) {
-        clearTimeout(autoHideTimer.current);
-      }
-    };
-  }, [isTabBarVisible, resetAutoHideTimer]);
-
-  const handleToggle = () => {
-    toggleTabBar();
-  };
-
-  // Rotasyon interpolasyonu
-  const rotate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
+  const lastScrollY = useRef(0);
+  const scrollThreshold = 10; // Minimum scroll mesafesi
 
   // WebView içindeki localStorage/sessionStorage'dan token çekmek için inject edilecek JS
   const injectedJavaScript = `
@@ -87,25 +18,25 @@ function DashboardScreen() {
       // Token'ı çeşitli kaynaklardan almaya çalış
       function getToken() {
         // 1. localStorage'dan
-        const localToken = localStorage.getItem('token') ||
-                          localStorage.getItem('accessToken') ||
+        const localToken = localStorage.getItem('token') || 
+                          localStorage.getItem('accessToken') || 
                           localStorage.getItem('access_token') ||
                           localStorage.getItem('authToken');
-
+        
         // 2. sessionStorage'dan
-        const sessionToken = sessionStorage.getItem('token') ||
-                            sessionStorage.getItem('accessToken') ||
+        const sessionToken = sessionStorage.getItem('token') || 
+                            sessionStorage.getItem('accessToken') || 
                             sessionStorage.getItem('access_token');
-
+        
         // 3. Cookie'den
         const cookies = document.cookie;
-
+        
         return localToken || sessionToken;
       }
 
       // User bilgisini al
       function getUser() {
-        const userStr = localStorage.getItem('user') ||
+        const userStr = localStorage.getItem('user') || 
                        localStorage.getItem('userData') ||
                        localStorage.getItem('currentUser');
         try {
@@ -119,7 +50,7 @@ function DashboardScreen() {
       function checkAndSendToken() {
         const token = getToken();
         const user = getUser();
-
+        
         if (token) {
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'AUTH_TOKEN',
@@ -150,7 +81,7 @@ function DashboardScreen() {
       window.fetch = async function(...args) {
         const [url, options] = args;
         console.log('🌐 Fetch Request:', url);
-
+        
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'FETCH_REQUEST',
           url: url,
@@ -206,6 +137,29 @@ function DashboardScreen() {
         return originalXHRSend.apply(this, arguments);
       };
 
+      // Scroll tracking için
+      let lastScrollY = 0;
+      let ticking = false;
+
+      function handleScroll() {
+        const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+        if (!ticking) {
+          window.requestAnimationFrame(() => {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'SCROLL',
+              scrollY: currentScrollY,
+              lastScrollY: lastScrollY
+            }));
+            lastScrollY = currentScrollY;
+            ticking = false;
+          });
+          ticking = true;
+        }
+      }
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
       console.log('✅ React Native WebView injection completed');
       true;
     })();
@@ -223,6 +177,29 @@ function DashboardScreen() {
           }
           break;
 
+        case 'SCROLL':
+          const { scrollY, lastScrollY: prevScrollY } = data;
+          const scrollDifference = scrollY - prevScrollY;
+
+          // Scroll yönünü kontrol et
+          if (Math.abs(scrollDifference) > scrollThreshold) {
+            if (scrollDifference > 0) {
+              // Aşağı scroll - bottom bar'ı gizle
+              hideTabBar();
+            } else {
+              // Yukarı scroll - bottom bar'ı göster
+              showTabBar();
+            }
+          }
+
+          // Sayfanın en üstündeysek bottom bar'ı göster
+          if (scrollY <= 50) {
+            showTabBar();
+          }
+
+          lastScrollY.current = scrollY;
+          break;
+
         case 'FETCH_REQUEST':
         case 'FETCH_RESPONSE':
         case 'FETCH_ERROR':
@@ -238,10 +215,7 @@ function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView
-      style={styles.container}
-      edges={isTabBarVisible ? ['top'] : ['top', 'bottom']}
-    >
+    <SafeAreaView style={styles.container} edges={['top']}>
       <WebView
         ref={webViewRef}
         source={{ uri: 'https://nettech.kodpilot.com' }}
@@ -254,26 +228,6 @@ function DashboardScreen() {
         onMessage={handleWebViewMessage}
         injectedJavaScript={injectedJavaScript}
       />
-      {/* Floating Arrow Button - Centered */}
-      <TouchableOpacity
-        style={styles.floatingButton}
-        onPress={handleToggle}
-        activeOpacity={0.7}
-      >
-        <Animated.View
-          style={[
-            styles.arrowContainer,
-            {
-              transform: [
-                { rotate },
-                { scale: isTabBarVisible ? 1 : pulseAnim },
-              ],
-            },
-          ]}
-        >
-          <Ionicons name="chevron-up" size={32} color="rgba(0, 0, 0, 0.6)" />
-        </Animated.View>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -285,25 +239,6 @@ const styles = StyleSheet.create({
   },
   webview: {
     flex: 1,
-  },
-  floatingButton: {
-    position: 'absolute',
-    bottom: 12,
-    alignSelf: 'center',
-    width: 60,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  arrowContainer: {
-    width: 60,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
 });
 

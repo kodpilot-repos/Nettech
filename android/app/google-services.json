@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "754125331486",
+    "project_id": "nettech-15f0f",
+    "storage_bucket": "nettech-15f0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:754125331486:android:827dacaea111acda91a20f",
+        "android_client_info": {
+          "package_name": "com.nettech"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDGm7-n5uvlFqzGhC00prT4z4GhnhqocqA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

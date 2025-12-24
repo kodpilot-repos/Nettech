@@ -17,18 +17,6 @@ import { TabBarProvider } from './src/context/TabBarContext';
 
 function App() {
   useEffect(() => {
-    // Create HIGH priority notification channel
-    async function createNotificationChannel() {
-      await notifee.createChannel({
-        id: 'default-nettech',
-        name: 'Bildirimler',
-        importance: AndroidImportance.HIGH,
-        sound: 'default',
-        vibration: true,
-        vibrationPattern: [300, 500],
-      });
-    }
-
     // Request notification permission
     async function requestUserPermission() {
       const authStatus = await messaging().requestPermission();
@@ -45,39 +33,39 @@ function App() {
       }
     }
 
-    createNotificationChannel();
     requestUserPermission();
 
     // Foreground message handler
     const unsubscribe = messaging().onMessage(async remoteMessage => {
       console.log('Foreground message:', remoteMessage);
 
-      // Firebase notification veya data'dan bilgileri al
-      const title = String(
-        remoteMessage.notification?.title ||
-        remoteMessage.data?.title ||
-        'Yeni Bildirim'
-      );
-      const body = String(
-        remoteMessage.notification?.body ||
-        remoteMessage.data?.body ||
-        'Bir mesajınız var'
-      );
-      const imageUrl = remoteMessage.data?.image ? String(remoteMessage.data.image) : undefined;
-
-      // HIGH priority Notifee bildirimi göster
-      await notifee.displayNotification({
-        title: title,
-        body: body,
-        android: {
-          channelId: 'default-nettech',
-          importance: AndroidImportance.HIGH,
-          pressAction: { id: 'default' },
-          ...(imageUrl && { largeIcon: imageUrl }),
-          color: '#4285F4',
-          smallIcon: 'ic_launcher',
-        },
+      // Channel oluştur
+      await notifee.createChannel({
+        id: 'default-nettech',
+        name: 'Bildirimler',
+        importance: AndroidImportance.HIGH,
+        sound: 'default',
+        vibration: true,
       });
+
+      // // Firebase data'dan bilgileri al
+      // const title = String(remoteMessage.data?.title || 'Yeni Bildirim');
+      // const body = String(remoteMessage.data?.body || 'Bir mesajınız var');
+      // const imageUrl = remoteMessage.data?.image ? String(remoteMessage.data.image) : undefined;
+
+      // Custom Notifee bildirimi göster
+      // await notifee.displayNotification({
+      //   title: title,
+      //   body: body,
+      //   android: {
+      //     channelId,
+      //     importance: AndroidImportance.HIGH,
+      //     pressAction: { id: 'default' },
+      //     ...(imageUrl && { largeIcon: imageUrl }),
+      //     color: '#4285F4',
+      //     smallIcon: 'ic_launcher',
+      //   },
+      // });
     });
 
     // Handle notification opened app from background

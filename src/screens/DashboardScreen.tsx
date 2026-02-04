@@ -12,6 +12,7 @@ function DashboardScreen() {
   const { setCartItems, setWebViewRef, syncCartData } = useCart();
   const webViewRef = useRef<WebView>(null);
   const lastScrollY = useRef(0);
+  const isPopupOpen = useRef(false);
 
   // WebView ref'ini CartContext'e kaydet
   React.useEffect(() => {
@@ -288,6 +289,11 @@ function DashboardScreen() {
           break;
 
         case 'SCROLL':
+          // Popup açıkken scroll ile tab bar değişikliği yapma
+          if (isPopupOpen.current) {
+            break;
+          }
+
           const { scrollY, lastScrollY: prevScrollY } = data;
           const scrollDifference = scrollY - prevScrollY;
           const now = Date.now();
@@ -335,6 +341,7 @@ function DashboardScreen() {
 
         case 'UI_OVERLAY_STATE':
           // Hamburger menü veya popup açık/kapalı durumu
+          isPopupOpen.current = data.isOpen;
           if (data.isOpen) {
             hideTabBar();
           } else {

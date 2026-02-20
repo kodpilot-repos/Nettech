@@ -34,15 +34,11 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Fotoğraf çekmek için kamera erişimi gerekli</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Konum bilgisi kullanılırken erişim gerekli</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Video çekmek için mikrofon erişimi gerekli</string>
+	<string>Ürün barkodlarını (EAN-13, EAN-8, QR, Code-128) okutarak ürün bilgilerine ulaşmak ve mağaza stok durumunu sorgulamak için kamera erişimi gereklidir.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Çekilen fotoğrafları kaydetmek için izin gerekli</string>
+	<string>Taranan ürün barkodlarına ait görselleri galerinize kaydetmek için izin gereklidir.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Fotoğrafları kaydetmek için galeri erişimi gerekli</string>
+	<string>Galerinizden barkod görseli seçerek ürün sorgulaması yapabilmek için galeri erişimi gereklidir.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UIAppFonts</key>

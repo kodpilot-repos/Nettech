@@ -8,6 +8,7 @@ import {
   Linking,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,6 +22,26 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CameraStackParamList } from '../types/navigation';
 import { findProductByBarcode } from '../services/api';
 import colors from '../theme/colors';
+import BarcodeScannerOverlay from '../components/BarcodeScannerOverlay';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const FRAME_SIZE = SCREEN_WIDTH * 0.7;
+const CAMERA_BOTTOM_OFFSET = 80;
+const CAMERA_HEIGHT = SCREEN_HEIGHT - CAMERA_BOTTOM_OFFSET;
+
+// regionOfInterest: kare çerçevenin kamera görünümüne göre normalize koordinatları (0-1) — sadece iOS
+const SCAN_REGION = {
+  x: (SCREEN_WIDTH - FRAME_SIZE) / 2 / SCREEN_WIDTH,
+  y: (SCREEN_HEIGHT - FRAME_SIZE) / 2 / CAMERA_HEIGHT,
+  width: FRAME_SIZE / SCREEN_WIDTH,
+  height: FRAME_SIZE / CAMERA_HEIGHT,
+};
+
+// Kare çerçevenin ekran koordinatları (dp) — yazılım tarafı filtre için
+const SCAN_FRAME_LEFT = (SCREEN_WIDTH - FRAME_SIZE) / 2;
+const SCAN_FRAME_RIGHT = SCAN_FRAME_LEFT + FRAME_SIZE;
+const SCAN_FRAME_TOP = (SCREEN_HEIGHT - FRAME_SIZE) / 2;
+const SCAN_FRAME_BOTTOM = SCAN_FRAME_TOP + FRAME_SIZE;
 
 type Props = NativeStackScreenProps<CameraStackParamList, 'Scanner'>;
 
@@ -159,9 +180,28 @@ function CameraScreen({ navigation }: Props) {
       'code-128', // Yaygın format
       'upc-a', // ABD ürün barkodu
     ],
+    regionOfInterest: SCAN_REGION,
     onCodeScanned: codes => {
-      if (codes.length > 0 && codes[0].value) {
-        handleBarcodeScanned(codes[0].value);
+      // code.frame: kamera önizlemesine göre dp cinsinden konum (her iki platform)
+      const validCode = codes.find(code => {
+        if (!code.value) {
+          return false;
+        }
+        if (!code.frame) {
+          // Konum bilgisi yoksa geç, taramayı engelle
+          return false;
+        }
+        const centerX = code.frame.x + code.frame.width / 2;
+        const centerY = code.frame.y + code.frame.height / 2;
+        return (
+          centerX >= SCAN_FRAME_LEFT &&
+          centerX <= SCAN_FRAME_RIGHT &&
+          centerY >= SCAN_FRAME_TOP &&
+          centerY <= SCAN_FRAME_BOTTOM
+        );
+      });
+      if (validCode?.value) {
+        handleBarcodeScanned(validCode.value);
       }
     },
   });
@@ -253,13 +293,8 @@ function CameraScreen({ navigation }: Props) {
         codeScanner={codeScanner}
       />
 
-      {/* Tarama çerçevesi */}
-      <View style={styles.scanFrame}>
-        <View style={styles.cornerTopLeft} />
-        <View style={styles.cornerTopRight} />
-        <View style={styles.cornerBottomLeft} />
-        <View style={styles.cornerBottomRight} />
-      </View>
+      {/* Tarama çerçevesi ve dış alan karartması */}
+      <BarcodeScannerOverlay />
 
       {/* Mesaj alanı */}
       <View style={styles.messageContainer}>
@@ -345,60 +380,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  scanFrame: {
-    position: 'absolute',
-    top: '30%',
-    left: '10%',
-    right: '10%',
-    height: 250,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: 12,
-  },
-  cornerTopLeft: {
-    position: 'absolute',
-    top: -2,
-    left: -2,
-    width: 40,
-    height: 40,
-    borderTopWidth: 4,
-    borderLeftWidth: 4,
-    borderColor: '#fff',
-    borderTopLeftRadius: 12,
-  },
-  cornerTopRight: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 40,
-    height: 40,
-    borderTopWidth: 4,
-    borderRightWidth: 4,
-    borderColor: '#fff',
-    borderTopRightRadius: 12,
-  },
-  cornerBottomLeft: {
-    position: 'absolute',
-    bottom: -2,
-    left: -2,
-    width: 40,
-    height: 40,
-    borderBottomWidth: 4,
-    borderLeftWidth: 4,
-    borderColor: '#fff',
-    borderBottomLeftRadius: 12,
-  },
-  cornerBottomRight: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 40,
-    height: 40,
-    borderBottomWidth: 4,
-    borderRightWidth: 4,
-    borderColor: '#fff',
-    borderBottomRightRadius: 12,
   },
   messageContainer: {
     position: 'absolute',

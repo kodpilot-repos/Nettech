@@ -49,6 +49,11 @@ export interface Category {
   parent_id?: number;
 }
 
+export interface DeviceModel {
+  id: number;
+  name: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -397,6 +402,10 @@ export async function sendProductIdToService(
 export async function searchProducts(
   query: string,
   page: number = 1,
+  categoryId?: number,
+  stockOption?: string,
+  brandId?: number,
+  modelId?: number,
 ): Promise<ApiResponse<Product[]>> {
   const url = `${API_BASE_URL}/products`;
 
@@ -423,7 +432,7 @@ export async function searchProducts(
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const requestBody = {
+    const requestBody: Record<string, any> = {
       page: page,
       search: query,
       orderingBy: 'id',
@@ -436,6 +445,22 @@ export async function searchProducts(
         store_stock_limit: 1,
       },
     };
+
+    if (categoryId) {
+      requestBody.filters.category_id = categoryId;
+    }
+
+    if (brandId) {
+      requestBody.filters.brand_id = brandId;
+    }
+
+    if (modelId) {
+      requestBody.filters.model_id = modelId;
+    }
+
+    if (stockOption !== undefined && stockOption !== null) {
+      requestBody.stock_option = stockOption;
+    }
 
     console.log('📤 [searchProducts] REQUEST:', {
       url,
@@ -832,6 +857,82 @@ export async function sendFeedback(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Feedback gönderilemedi',
+    };
+  }
+}
+
+/**
+ * Markaya ait cihaz modellerini getirir
+ * @param brandId - Marka ID'si
+ * @returns Model listesi
+ */
+export async function getDeviceModels(
+  brandId: number,
+): Promise<ApiResponse<DeviceModel[]>> {
+  const url = `${API_BASE_URL}/settings/device_models/${brandId}`;
+
+  const token = await tokenManager.getToken();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    console.log('📤 [getDeviceModels] REQUEST:', { url, brandId });
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    let apiResponse;
+    try {
+      apiResponse = JSON.parse(responseText);
+    } catch {
+      throw new Error('API yanıtı JSON formatında değil');
+    }
+
+    let models: DeviceModel[] = [];
+
+    if (apiResponse.data && Array.isArray(apiResponse.data)) {
+      models = apiResponse.data;
+    } else if (Array.isArray(apiResponse)) {
+      models = apiResponse;
+    } else if (apiResponse.models && Array.isArray(apiResponse.models)) {
+      models = apiResponse.models;
+    }
+
+    console.log(`✅ [getDeviceModels] ${models.length} model bulundu`);
+
+    return { success: true, data: models };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error('❌ Device models fetch error:', error);
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      return { success: false, error: 'İstek zaman aşımına uğradı' };
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Model listesi alınamadı',
     };
   }
 }

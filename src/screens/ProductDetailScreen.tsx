@@ -87,9 +87,15 @@ function ProductDetailScreen({ route, navigation }: Props) {
     if (!product) return [];
     return [
       {
-        label: 'Fiyat',
+        label: 'Normal Fiyat',
         value: product.price5,
         suffix: product.price5_cur,
+        highlight: true,
+      },
+      {
+        label: 'Club Fiyat',
+        value: product.price6,
+        suffix: product.price6_cur,
         highlight: true,
       },
       {
@@ -109,6 +115,22 @@ function ProductDetailScreen({ route, navigation }: Props) {
       },
     ];
   }, [product]);
+
+  const filteredBrands = useMemo(
+    () =>
+      brands.filter(item =>
+        item.name.toLowerCase().includes(brandSearchQuery.toLowerCase()),
+      ),
+    [brands, brandSearchQuery],
+  );
+
+  const filteredCategories = useMemo(
+    () =>
+      categories.filter(item =>
+        item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()),
+      ),
+    [categories, categorySearchQuery],
+  );
 
   // Resim listesi - Memoized (early return'den önce tanımlanmalı)
   // Eğer varyantlar varsa, tüm varyantların resimlerini göster
@@ -179,6 +201,10 @@ function ProductDetailScreen({ route, navigation }: Props) {
 
         if (response.success && response.data) {
           // İlk API'nin verisini hemen kullanıcıya göster
+          console.log(
+            '📦 [ProductDetail] İlk API verisi:',
+            JSON.stringify(response.data, null, 2),
+          );
           setProduct(response.data);
           // Variations varsa kaydet
           if (response.variations && response.variations.length > 0) {
@@ -190,6 +216,10 @@ function ProductDetailScreen({ route, navigation }: Props) {
           sendProductIdToService(barcode, response.data.id)
             .then(postResponse => {
               if (postResponse.success && postResponse.data) {
+                console.log(
+                  '📦 [ProductDetail] İkinci API (POST) verisi:',
+                  JSON.stringify(postResponse.data, null, 2),
+                );
                 console.log(
                   '✅ [fetchProduct] POST response variations:',
                   postResponse.variations?.length,
@@ -304,6 +334,7 @@ function ProductDetailScreen({ route, navigation }: Props) {
 
   // Markaları yükle
   const loadBrands = async () => {
+    if (isLoadingBrands) return;
     setIsLoadingBrands(true);
     try {
       const response = await getBrands();
@@ -365,12 +396,13 @@ function ProductDetailScreen({ route, navigation }: Props) {
   };
 
   const toggleBrandDropdown = () => {
+    if (isLoadingBrands) return;
     console.log('🔄 [ProductDetailScreen] Brand dropdown toggled:', {
       before: isBrandDropdownOpen,
       after: !isBrandDropdownOpen,
       brandsLength: brands.length,
     });
-    setIsBrandDropdownOpen(!isBrandDropdownOpen);
+    setIsBrandDropdownOpen(prev => !prev);
     if (brands.length === 0) {
       console.log('📥 [ProductDetailScreen] Loading brands...');
       loadBrands();
@@ -520,7 +552,7 @@ function ProductDetailScreen({ route, navigation }: Props) {
             if (categories.length === 0) loadCategories();
           }}
         >
-          <Icon name="cog" size={22} color="#666" />
+          <Icon name="filter" size={22} color="#666" />
         </TouchableOpacity>
 
         {/* Üç Nokta Menü Butonu */}
@@ -683,10 +715,7 @@ function ProductDetailScreen({ route, navigation }: Props) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView
-              style={styles.filterModalContent}
-              showsVerticalScrollIndicator={false}
-            >
+            <View style={styles.filterModalContent}>
               {/* Kategori Dropdown */}
               <View style={styles.dropdownContainer}>
                 <TouchableOpacity
@@ -731,48 +760,43 @@ function ProductDetailScreen({ route, navigation }: Props) {
                           Yükleniyor...
                         </Text>
                       </View>
-                    ) : categories.length === 0 ? (
+                    ) : filteredCategories.length === 0 ? (
                       <Text style={styles.dropdownEmptyText}>
                         Kategori bulunamadı
                       </Text>
                     ) : (
-                      <ScrollView
+                      <FlatList
+                        data={filteredCategories}
+                        keyExtractor={item => item.id.toString()}
                         style={styles.dropdownItemsScroll}
                         nestedScrollEnabled={true}
                         showsVerticalScrollIndicator={true}
-                      >
-                        {categories
-                          .filter(item =>
-                            item.name
-                              .toLowerCase()
-                              .includes(categorySearchQuery.toLowerCase()),
-                          )
-                          .map(item => (
-                            <TouchableOpacity
-                              key={item.id}
+                        keyboardShouldPersistTaps="handled"
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            style={[
+                              styles.dropdownItem,
+                              selectedCategory?.id === item.id &&
+                                styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => {
+                              setSelectedCategory(item);
+                              setIsCategoryDropdownOpen(false);
+                              setCategorySearchQuery('');
+                            }}
+                          >
+                            <Text
                               style={[
-                                styles.dropdownItem,
+                                styles.dropdownItemText,
                                 selectedCategory?.id === item.id &&
-                                  styles.dropdownItemSelected,
+                                  styles.dropdownItemTextSelected,
                               ]}
-                              onPress={() => {
-                                setSelectedCategory(item);
-                                setIsCategoryDropdownOpen(false);
-                                setCategorySearchQuery('');
-                              }}
                             >
-                              <Text
-                                style={[
-                                  styles.dropdownItemText,
-                                  selectedCategory?.id === item.id &&
-                                    styles.dropdownItemTextSelected,
-                                ]}
-                              >
-                                {item.name}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                      </ScrollView>
+                              {item.name}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      />
                     )}
                   </View>
                 )}
@@ -783,6 +807,7 @@ function ProductDetailScreen({ route, navigation }: Props) {
                 <TouchableOpacity
                   style={styles.dropdownHeader}
                   onPress={toggleBrandDropdown}
+                  disabled={isLoadingBrands}
                 >
                   <Text style={styles.dropdownHeaderText}>
                     Marka {selectedBrand && `(${selectedBrand.name})`}
@@ -820,48 +845,43 @@ function ProductDetailScreen({ route, navigation }: Props) {
                           Yükleniyor...
                         </Text>
                       </View>
-                    ) : brands.length === 0 ? (
+                    ) : filteredBrands.length === 0 ? (
                       <Text style={styles.dropdownEmptyText}>
                         Marka bulunamadı
                       </Text>
                     ) : (
-                      <ScrollView
+                      <FlatList
+                        data={filteredBrands}
+                        keyExtractor={item => item.id.toString()}
                         style={styles.dropdownItemsScroll}
                         nestedScrollEnabled={true}
                         showsVerticalScrollIndicator={true}
-                      >
-                        {brands
-                          .filter(item =>
-                            item.name
-                              .toLowerCase()
-                              .includes(brandSearchQuery.toLowerCase()),
-                          )
-                          .map(item => (
-                            <TouchableOpacity
-                              key={item.id}
+                        keyboardShouldPersistTaps="handled"
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            style={[
+                              styles.dropdownItem,
+                              selectedBrand?.id === item.id &&
+                                styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => {
+                              setSelectedBrand(item);
+                              setIsBrandDropdownOpen(false);
+                              setBrandSearchQuery('');
+                            }}
+                          >
+                            <Text
                               style={[
-                                styles.dropdownItem,
+                                styles.dropdownItemText,
                                 selectedBrand?.id === item.id &&
-                                  styles.dropdownItemSelected,
+                                  styles.dropdownItemTextSelected,
                               ]}
-                              onPress={() => {
-                                setSelectedBrand(item);
-                                setIsBrandDropdownOpen(false);
-                                setBrandSearchQuery('');
-                              }}
                             >
-                              <Text
-                                style={[
-                                  styles.dropdownItemText,
-                                  selectedBrand?.id === item.id &&
-                                    styles.dropdownItemTextSelected,
-                                ]}
-                              >
-                                {item.name}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                      </ScrollView>
+                              {item.name}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      />
                     )}
                   </View>
                 )}
@@ -889,7 +909,7 @@ function ProductDetailScreen({ route, navigation }: Props) {
                   </View>
                 )}
               </View>
-            </ScrollView>
+            </View>
 
             {/* Modal Footer - Uygula ve Temizle Butonları */}
             <View style={styles.filterModalFooter}>
@@ -905,11 +925,6 @@ function ProductDetailScreen({ route, navigation }: Props) {
               <TouchableOpacity
                 style={styles.filterApplyButton}
                 onPress={() => {
-                  console.log('Filtreler uygulandı:', {
-                    category: selectedCategory?.name,
-                    brand: selectedBrand?.name,
-                  });
-
                   // ProductList sayfasına git
                   navigation.navigate('ProductList', {
                     categoryId: selectedCategory?.id,
@@ -1337,9 +1352,9 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   filterModalContent: {
+    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 100,
   },
   dropdownContainer: {
     marginBottom: 16,
@@ -1354,6 +1369,9 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
     borderRadius: 12,
+  },
+  dropdownHeaderDisabled: {
+    opacity: 0.5,
   },
   dropdownHeaderText: {
     fontSize: 16,

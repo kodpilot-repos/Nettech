@@ -32,6 +32,7 @@ function ProductListScreen({ route, navigation }: Props) {
     categoryName,
     brandId,
     brandName,
+    modelId,
     searchQuery: initialSearchQuery,
   } = route.params;
   const insets = useSafeAreaInsets();
@@ -42,6 +43,7 @@ function ProductListScreen({ route, navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
   const [isSearching, setIsSearching] = useState(false);
+  const [stockOption, setStockOption] = useState<'' | 'stock_in'>('');
 
   // Infinite scroll state'leri
   const [currentPage, setCurrentPage] = useState(1);
@@ -68,44 +70,18 @@ function ProductListScreen({ route, navigation }: Props) {
 
   // Ürünleri yükle
   const loadProducts = useCallback(
-    async (query: string = '', page: number = 1) => {
+    async (query: string = '', page: number = 1, currentStockOption: '' | 'stock_in' = '') => {
       // İlk sayfa için ana loading, diğer sayfalar için isLoadingMore kullan
       if (page === 1) {
         setIsLoading(true);
       }
 
       try {
-        // Arama query'si oluştur
-        let searchText = query;
-
-        // Eğer query yoksa, kategori veya marka ismini kullan
-        if (!searchText) {
-          if (categoryName) {
-            searchText = categoryName;
-          } else if (brandName) {
-            searchText = brandName;
-          }
-        }
-
-        const response = await searchProducts(searchText, page);
+        // category_id ve brand_id zaten filters içinde backend'e gönderiliyor
+        const response = await searchProducts(query, page, categoryId, currentStockOption, brandId, modelId);
 
         if (response.success && response.data) {
           let filteredProducts = response.data;
-
-          // Kategori filtresi uygula
-          if (categoryId) {
-            filteredProducts = filteredProducts.filter(
-              p => p.category_id === categoryId,
-            );
-          }
-
-          // Marka filtresi - API'den marka ID'si ile filtreleme yapılamadığı için
-          // İsimle filtreleme yapıyoruz (daha doğru bir çözüm için API'ye brand_id parametresi eklenebilir)
-          if (brandName) {
-            filteredProducts = filteredProducts.filter(p =>
-              p.name.toLowerCase().includes(brandName.toLowerCase()),
-            );
-          }
 
           // İlk sayfa ise ürünleri değiştir, değilse ekle
           if (page === 1) {
@@ -134,13 +110,13 @@ function ProductListScreen({ route, navigation }: Props) {
         }
       }
     },
-    [categoryId, categoryName, brandName],
+    [categoryId, brandId, modelId],
   );
 
   // İlk yükleme
   useEffect(() => {
-    loadProducts(initialSearchQuery);
-  }, [categoryId, brandId, initialSearchQuery, loadProducts]);
+    loadProducts(initialSearchQuery, 1, stockOption);
+  }, [categoryId, brandId, initialSearchQuery, loadProducts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Daha fazla ürün yükle (infinite scroll)
   const loadMoreProducts = () => {
@@ -148,7 +124,7 @@ function ProductListScreen({ route, navigation }: Props) {
       setIsLoadingMore(true);
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
-      loadProducts(searchQuery, nextPage).finally(() => {
+      loadProducts(searchQuery, nextPage, stockOption).finally(() => {
         setIsLoadingMore(false);
       });
     }
@@ -157,22 +133,29 @@ function ProductListScreen({ route, navigation }: Props) {
   // Arama fonksiyonu - debounce ile
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
-      // Arama query'si yoksa, filtre parametrelerine göre yükle
       setCurrentPage(1);
       setHasMore(true);
-      loadProducts('', 1);
+      loadProducts('', 1, stockOption);
       return;
     }
     setIsSearching(true);
     const timeoutId = setTimeout(() => {
       setCurrentPage(1);
       setHasMore(true);
-      loadProducts(searchQuery, 1);
+      loadProducts(searchQuery, 1, stockOption);
       setIsSearching(false);
     }, 500); // 500ms debounce
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, loadProducts]);
+  }, [searchQuery, stockOption, loadProducts]);
+
+  // Stok filtresi değişince yeniden yükle
+  const handleStockOptionChange = (option: '' | 'stock_in') => {
+    setStockOption(option);
+    setCurrentPage(1);
+    setHasMore(true);
+    loadProducts(searchQuery, 1, option);
+  };
 
   // Ürün seçimi
   const handleProductPress = async (product: Product) => {
@@ -286,6 +269,26 @@ function ProductListScreen({ route, navigation }: Props) {
             style={styles.searchLoader}
           />
         )}
+      </View>
+
+      {/* Stok Filtresi */}
+      <View style={styles.stockFilterContainer}>
+        <TouchableOpacity
+          style={[styles.stockFilterTab, stockOption === '' && styles.stockFilterTabActive]}
+          onPress={() => handleStockOptionChange('')}
+        >
+          <Text style={[styles.stockFilterTabText, stockOption === '' && styles.stockFilterTabTextActive]}>
+            Tüm Stoklar
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.stockFilterTab, stockOption === 'stock_in' && styles.stockFilterTabActive]}
+          onPress={() => handleStockOptionChange('stock_in')}
+        >
+          <Text style={[styles.stockFilterTabText, stockOption === 'stock_in' && styles.stockFilterTabTextActive]}>
+            Kendi Stoklarım
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Ürün Listesi */}
@@ -508,6 +511,33 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 13,
     color: '#666',
+  },
+  stockFilterContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  stockFilterTab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+  },
+  stockFilterTabActive: {
+    backgroundColor: '#F99D26',
+  },
+  stockFilterTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  stockFilterTabTextActive: {
+    color: '#fff',
   },
 });
 

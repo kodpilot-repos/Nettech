@@ -4,7 +4,7 @@ import { CameraStackParamList } from '../types/navigation';
 import CameraScreen from '../screens/CameraScreen';
 import ProductDetailScreen from '../screens/ProductDetailScreen';
 import ProductListScreen from '../screens/ProductListScreen';
-import colors from '../theme/colors';
+// import colors from '../theme/colors';
 
 const Stack = createNativeStackNavigator<CameraStackParamList>();
 

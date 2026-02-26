@@ -1,8 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Animated, Dimensions } from 'react-native';
-import colors from '../theme/colors';
+import { StyleSheet, View, Animated, Dimensions } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const FRAME_SIZE = width * 0.7;
 
 function BarcodeScannerOverlay() {
@@ -63,19 +62,19 @@ function BarcodeScannerOverlay() {
         <View style={styles.overlaySide} />
       </View>
 
-      {/* Bottom overlay with instruction */}
-      <View style={styles.overlayBottom}>
-        <Text style={styles.instructionText}>
-          Barkodu çerçeve içine hizalayın
-        </Text>
-      </View>
+      {/* Bottom overlay */}
+      <View style={styles.overlayBottom} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },

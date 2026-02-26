@@ -32,7 +32,6 @@ function ProductListScreen({ route, navigation }: Props) {
     categoryName,
     brandId,
     brandName,
-    modelId,
     searchQuery: initialSearchQuery,
   } = route.params;
   const insets = useSafeAreaInsets();
@@ -70,7 +69,11 @@ function ProductListScreen({ route, navigation }: Props) {
 
   // Ürünleri yükle
   const loadProducts = useCallback(
-    async (query: string = '', page: number = 1, currentStockOption: '' | 'stock_in' = '') => {
+    async (
+      query: string = '',
+      page: number = 1,
+      currentStockOption: '' | 'stock_in' = '',
+    ) => {
       // İlk sayfa için ana loading, diğer sayfalar için isLoadingMore kullan
       if (page === 1) {
         setIsLoading(true);
@@ -78,7 +81,13 @@ function ProductListScreen({ route, navigation }: Props) {
 
       try {
         // category_id ve brand_id zaten filters içinde backend'e gönderiliyor
-        const response = await searchProducts(query, page, categoryId, currentStockOption, brandId, modelId);
+        const response = await searchProducts(
+          query,
+          page,
+          categoryId,
+          currentStockOption,
+          brandId,
+        );
 
         if (response.success && response.data) {
           let filteredProducts = response.data;
@@ -110,7 +119,7 @@ function ProductListScreen({ route, navigation }: Props) {
         }
       }
     },
-    [categoryId, brandId, modelId],
+    [categoryId, brandId, setProducts],
   );
 
   // İlk yükleme
@@ -274,18 +283,34 @@ function ProductListScreen({ route, navigation }: Props) {
       {/* Stok Filtresi */}
       <View style={styles.stockFilterContainer}>
         <TouchableOpacity
-          style={[styles.stockFilterTab, stockOption === '' && styles.stockFilterTabActive]}
+          style={[
+            styles.stockFilterTab,
+            stockOption === '' && styles.stockFilterTabActive,
+          ]}
           onPress={() => handleStockOptionChange('')}
         >
-          <Text style={[styles.stockFilterTabText, stockOption === '' && styles.stockFilterTabTextActive]}>
+          <Text
+            style={[
+              styles.stockFilterTabText,
+              stockOption === '' && styles.stockFilterTabTextActive,
+            ]}
+          >
             Tüm Stoklar
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.stockFilterTab, stockOption === 'stock_in' && styles.stockFilterTabActive]}
+          style={[
+            styles.stockFilterTab,
+            stockOption === 'stock_in' && styles.stockFilterTabActive,
+          ]}
           onPress={() => handleStockOptionChange('stock_in')}
         >
-          <Text style={[styles.stockFilterTabText, stockOption === 'stock_in' && styles.stockFilterTabTextActive]}>
+          <Text
+            style={[
+              styles.stockFilterTabText,
+              stockOption === 'stock_in' && styles.stockFilterTabTextActive,
+            ]}
+          >
             Kendi Stoklarım
           </Text>
         </TouchableOpacity>

@@ -88,8 +88,8 @@ function ProductDetailScreen({ route, navigation }: Props) {
     return [
       {
         label: 'Normal Fiyat',
-        value: product.price5,
-        suffix: product.price5_cur,
+        value: product.price1,
+        suffix: product.price1_cur,
         highlight: true,
       },
       {

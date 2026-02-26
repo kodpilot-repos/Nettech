@@ -16,28 +16,16 @@ import {
   Camera,
   useCameraDevice,
   useCameraPermission,
+  useCameraFormat,
   useCodeScanner,
 } from 'react-native-vision-camera';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CameraStackParamList } from '../types/navigation';
 import { findProductByBarcode } from '../services/api';
-import colors from '../theme/colors';
 import BarcodeScannerOverlay from '../components/BarcodeScannerOverlay';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const FRAME_SIZE = SCREEN_WIDTH * 0.7;
-const CAMERA_BOTTOM_OFFSET = 80;
-const CAMERA_HEIGHT = SCREEN_HEIGHT - CAMERA_BOTTOM_OFFSET;
-
-// regionOfInterest: kare çerçevenin kamera görünümüne göre normalize koordinatları (0-1) — sadece iOS
-const SCAN_REGION = {
-  x: (SCREEN_WIDTH - FRAME_SIZE) / 2 / SCREEN_WIDTH,
-  y: (SCREEN_HEIGHT - FRAME_SIZE) / 2 / CAMERA_HEIGHT,
-  width: FRAME_SIZE / SCREEN_WIDTH,
-  height: FRAME_SIZE / CAMERA_HEIGHT,
-};
-
-// Kare çerçevenin ekran koordinatları (dp) — yazılım tarafı filtre için
 const SCAN_FRAME_LEFT = (SCREEN_WIDTH - FRAME_SIZE) / 2;
 const SCAN_FRAME_RIGHT = SCAN_FRAME_LEFT + FRAME_SIZE;
 const SCAN_FRAME_TOP = (SCREEN_HEIGHT - FRAME_SIZE) / 2;
@@ -48,127 +36,57 @@ type Props = NativeStackScreenProps<CameraStackParamList, 'Scanner'>;
 function CameraScreen({ navigation }: Props) {
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
+  const format = useCameraFormat(device, [
+    { videoResolution: { width: 1920, height: 1080 } },
+  ]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [confirmProgress, setConfirmProgress] = useState(0);
 
-  // Barkod doğrulama için referanslar
+  // Çift okumayı önlemek için debounce referansı
   const lastScanTime = useRef<number>(0);
-  const barcodeBuffer = useRef<string[]>([]);
-  const confirmTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const SCAN_COOLDOWN = 500; // Her okuma arası 500ms bekleme
-  const CONFIRM_COUNT = 3; // Aynı barkod 3 kere okunmalı
-  const CONFIRM_TIMEOUT = 2500; // 2.5 saniye içinde aynı barkod tekrarlanmalı
-
-  // Buffer'ı temizle
-  const clearBarcodeBuffer = useCallback(() => {
-    barcodeBuffer.current = [];
-    setIsConfirming(false);
-    setConfirmProgress(0);
-    if (confirmTimeout.current) {
-      clearTimeout(confirmTimeout.current);
-      confirmTimeout.current = null;
-    }
-  }, []);
+  const SCAN_DEBOUNCE = 1500; // ms
 
   // Barkod işleme fonksiyonu
   const processBarcodeRequest = useCallback(
     async (barcode: string) => {
       setIsProcessing(true);
-      clearBarcodeBuffer();
 
       try {
-        // API'den ürün bilgisi çek
         const response = await findProductByBarcode(barcode);
 
         if (response.success && response.data) {
-          // Başarılı - ProductDetail sayfasına yönlendir
           navigation.navigate('ProductDetail', { barcode });
         } else {
-          // Ürün bulunamadı
           Alert.alert(
             'Ürün Bulunamadı',
             `"${barcode}" barkodlu ürün bulunamadı. Tekrar denemek için farklı bir barkod okutun.`,
-            [
-              {
-                text: 'Tamam',
-                onPress: () => {
-                  setIsProcessing(false);
-                },
-              },
-            ],
+            [{ text: 'Tamam', onPress: () => setIsProcessing(false) }],
           );
         }
       } catch {
         Alert.alert(
           'Hata',
           'Ürün bilgisi alınırken bir hata oluştu. Lütfen tekrar deneyin.',
-          [
-            {
-              text: 'Tamam',
-              onPress: () => {
-                setIsProcessing(false);
-              },
-            },
-          ],
+          [{ text: 'Tamam', onPress: () => setIsProcessing(false) }],
         );
       }
     },
-    [navigation, clearBarcodeBuffer],
+    [navigation],
   );
 
-  // Barkod okuma fonksiyonu - Kesinleşme mekanizması ile
+  // Barkod okuma fonksiyonu - debounce ile çift okuma önlenir
   const handleBarcodeScanned = useCallback(
-    async (barcode: string) => {
+    (barcode: string) => {
       if (isProcessing) {
         return;
       }
-
-      // Cooldown kontrolü
       const now = Date.now();
-      if (now - lastScanTime.current < SCAN_COOLDOWN) {
+      if (now - lastScanTime.current < SCAN_DEBOUNCE) {
         return;
       }
       lastScanTime.current = now;
-
-      // Barkod buffer'ına ekle
-      barcodeBuffer.current.push(barcode);
-
-      // Son CONFIRM_COUNT kadar barkodu kontrol et
-      const recentBarcodes = barcodeBuffer.current.slice(-CONFIRM_COUNT);
-
-      // Tüm son barkodlar aynı mı?
-      const allSame = recentBarcodes.every(b => b === barcode);
-      const hasEnoughScans = recentBarcodes.length >= CONFIRM_COUNT;
-
-      if (allSame && hasEnoughScans) {
-        // Barkod kesinleşti - İşleme başla
-        processBarcodeRequest(barcode);
-      } else {
-        // Henüz kesinleşmedi - Progress göster
-        setIsConfirming(true);
-        setConfirmProgress(recentBarcodes.length / CONFIRM_COUNT);
-
-        // Timeout'u sıfırla
-        if (confirmTimeout.current) {
-          clearTimeout(confirmTimeout.current);
-        }
-
-        // Belirli bir süre sonra buffer'ı temizle
-        confirmTimeout.current = setTimeout(() => {
-          clearBarcodeBuffer();
-        }, CONFIRM_TIMEOUT);
-      }
+      processBarcodeRequest(barcode);
     },
-    [
-      isProcessing,
-      SCAN_COOLDOWN,
-      CONFIRM_COUNT,
-      CONFIRM_TIMEOUT,
-      processBarcodeRequest,
-      clearBarcodeBuffer,
-    ],
+    [isProcessing, SCAN_DEBOUNCE, processBarcodeRequest],
   );
 
   // Code Scanner konfigürasyonu - Yaygın barkod formatları
@@ -180,19 +98,28 @@ function CameraScreen({ navigation }: Props) {
       'code-128', // Yaygın format
       'upc-a', // ABD ürün barkodu
     ],
-    regionOfInterest: SCAN_REGION,
     onCodeScanned: codes => {
-      // code.frame: kamera önizlemesine göre dp cinsinden konum (her iki platform)
       const validCode = codes.find(code => {
         if (!code.value) {
           return false;
         }
         if (!code.frame) {
-          // Konum bilgisi yoksa geç, taramayı engelle
           return false;
         }
-        const centerX = code.frame.x + code.frame.width / 2;
-        const centerY = code.frame.y + code.frame.height / 2;
+        let centerX: number;
+        let centerY: number;
+        if (Platform.OS === 'ios' && format) {
+          // iOS'ta frame koordinatları kamera sensörünün landscape uzayında gelir.
+          // Kameranın uzun kenarı (örn. 1920) ekran Y'sine, kısa kenarı (örn. 1080)
+          // ekran X'ine karşılık gelir. Bu dönüşümle ekran koordinatlarına çeviriyoruz.
+          const camLong = Math.max(format.videoWidth, format.videoHeight);
+          const camShort = Math.min(format.videoWidth, format.videoHeight);
+          centerX = (code.frame.y + code.frame.height / 2) / camShort * SCREEN_WIDTH;
+          centerY = (code.frame.x + code.frame.width / 2) / camLong * SCREEN_HEIGHT;
+        } else {
+          centerX = code.frame.x + code.frame.width / 2;
+          centerY = code.frame.y + code.frame.height / 2;
+        }
         return (
           centerX >= SCAN_FRAME_LEFT &&
           centerX <= SCAN_FRAME_RIGHT &&
@@ -209,16 +136,12 @@ function CameraScreen({ navigation }: Props) {
   // Ekran odaklandığında state'leri sıfırla
   useFocusEffect(
     useCallback(() => {
-      console.log('📷 CameraScreen focused - Resetting states');
       setIsProcessing(false);
-      clearBarcodeBuffer();
-
+      lastScanTime.current = 0;
       return () => {
-        // Ekran blur olduğunda cleanup
-        console.log('📷 CameraScreen blurred - Cleaning up');
-        clearBarcodeBuffer();
+        lastScanTime.current = 0;
       };
-    }, [clearBarcodeBuffer]),
+    }, []),
   );
 
   useEffect(() => {
@@ -289,6 +212,7 @@ function CameraScreen({ navigation }: Props) {
       <Camera
         style={[StyleSheet.absoluteFill, { bottom: 80 }]}
         device={device}
+        format={format}
         isActive={!isProcessing}
         codeScanner={codeScanner}
       />
@@ -302,23 +226,6 @@ function CameraScreen({ navigation }: Props) {
           <>
             <ActivityIndicator size="large" color="#fff" />
             <Text style={styles.messageText}>Ürün bilgisi yükleniyor...</Text>
-          </>
-        ) : isConfirming ? (
-          <>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${confirmProgress * 100}%` },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text style={styles.messageText}>Barkod Okunuyor...</Text>
-            <Text style={styles.subText}>
-              Lütfen barkodu sabit tutun ({Math.round(confirmProgress * 100)}%)
-            </Text>
           </>
         ) : (
           <>
@@ -388,23 +295,6 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     padding: 20,
-  },
-  progressContainer: {
-    width: '80%',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  progressBar: {
-    width: '100%',
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 3,
   },
   messageText: {
     fontSize: 20,

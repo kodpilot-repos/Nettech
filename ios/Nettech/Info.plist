@@ -36,6 +36,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Ürün barkodlarını (EAN-13, EAN-8, QR, Code-128) okutarak ürün bilgilerine ulaşmak ve mağaza stok durumunu sorgulamak için kamera erişimi gereklidir.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Taranan ürün barkodlarına a<it görselleri galerinize kaydetmek için izin gereklidir.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Size en yakın mağazaları ve teslimat seçeneklerini gösterebilmek için konumunuza erişim gereklidir.</string>
 	<string>Taranan ürün barkodlarına ait görselleri galerinize kaydetmek için izin gereklidir.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Galerinizden barkod görseli seçerek ürün sorgulaması yapabilmek için galeri erişimi gereklidir.</string>

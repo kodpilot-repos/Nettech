@@ -26,10 +26,12 @@ import {
   searchProducts,
   getBrands,
   getCategories,
+  getDeviceModels,
   sendFeedback,
   type Product,
   type Brand,
   type Category,
+  type DeviceModel,
 } from '../services/api';
 import ImageCarousel from '../components/ImageCarousel';
 import InfoTable from '../components/InfoTable';
@@ -76,6 +78,13 @@ function ProductDetailScreen({ route, navigation }: Props) {
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [brandSearchQuery, setBrandSearchQuery] = useState('');
+
+  // Model state'leri
+  const [models, setModels] = useState<DeviceModel[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
 
   // Feedback state'leri
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -130,6 +139,14 @@ function ProductDetailScreen({ route, navigation }: Props) {
         item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()),
       ),
     [categories, categorySearchQuery],
+  );
+
+  const filteredModels = useMemo(
+    () =>
+      models.filter(item =>
+        item.name.toLowerCase().includes(modelSearchQuery.toLowerCase()),
+      ),
+    [models, modelSearchQuery],
   );
 
   // Resim listesi - Memoized (early return'den önce tanımlanmalı)
@@ -415,6 +432,27 @@ function ProductDetailScreen({ route, navigation }: Props) {
       after: !isFeatureDropdownOpen,
     });
     setIsFeatureDropdownOpen(!isFeatureDropdownOpen);
+  };
+
+  // Modelleri yükle
+  const loadModels = async (brId: number) => {
+    setIsLoadingModels(true);
+    setModels([]);
+    try {
+      const response = await getDeviceModels(brId);
+      if (response.success && response.data) {
+        setModels(response.data);
+      }
+    } catch (err) {
+      console.error('Models load error:', err);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
+  const toggleModelDropdown = () => {
+    if (isLoadingModels) return;
+    setIsModelDropdownOpen(prev => !prev);
   };
 
   // Scroll handler - aşağı kaydırınca tab bar gizle, yukarı kaydırınca göster
@@ -868,6 +906,11 @@ function ProductDetailScreen({ route, navigation }: Props) {
                               setSelectedBrand(item);
                               setIsBrandDropdownOpen(false);
                               setBrandSearchQuery('');
+                              setSelectedModel(null);
+                              setModels([]);
+                              setIsModelDropdownOpen(false);
+                              setModelSearchQuery('');
+                              loadModels(item.id);
                             }}
                           >
                             <Text
@@ -886,6 +929,95 @@ function ProductDetailScreen({ route, navigation }: Props) {
                   </View>
                 )}
               </View>
+
+              {/* Model Dropdown - sadece marka seçiliyse göster */}
+              {selectedBrand && (
+                <View style={styles.dropdownContainer}>
+                  <TouchableOpacity
+                    style={styles.dropdownHeader}
+                    onPress={toggleModelDropdown}
+                    disabled={isLoadingModels}
+                  >
+                    <Text style={styles.dropdownHeaderText}>
+                      Model {selectedModel && `(${selectedModel.name})`}
+                    </Text>
+                    {isLoadingModels ? (
+                      <ActivityIndicator size="small" color="#F99D26" />
+                    ) : (
+                      <Icon
+                        name={isModelDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                        size={20}
+                        color="#666"
+                      />
+                    )}
+                  </TouchableOpacity>
+
+                  {isModelDropdownOpen && (
+                    <View style={styles.dropdownContent}>
+                      <View style={styles.dropdownSearchContainer}>
+                        <Icon
+                          name="magnify"
+                          size={18}
+                          color="#999"
+                          style={styles.dropdownSearchIcon}
+                        />
+                        <TextInput
+                          style={styles.dropdownSearchInput}
+                          placeholder="Model ara..."
+                          placeholderTextColor="#999"
+                          value={modelSearchQuery}
+                          onChangeText={setModelSearchQuery}
+                        />
+                      </View>
+                      {isLoadingModels ? (
+                        <View style={styles.dropdownLoading}>
+                          <ActivityIndicator size="small" color="#F99D26" />
+                          <Text style={styles.dropdownLoadingText}>
+                            Yükleniyor...
+                          </Text>
+                        </View>
+                      ) : filteredModels.length === 0 ? (
+                        <Text style={styles.dropdownEmptyText}>
+                          Model bulunamadı
+                        </Text>
+                      ) : (
+                        <FlatList
+                          data={filteredModels}
+                          keyExtractor={item => item.id.toString()}
+                          style={styles.dropdownItemsScroll}
+                          nestedScrollEnabled={true}
+                          showsVerticalScrollIndicator={true}
+                          keyboardShouldPersistTaps="handled"
+                          renderItem={({ item }) => (
+                            <TouchableOpacity
+                              style={[
+                                styles.dropdownItem,
+                                selectedModel?.id === item.id &&
+                                  styles.dropdownItemSelected,
+                              ]}
+                              onPress={() => {
+                                setSelectedModel(item);
+                                setIsModelDropdownOpen(false);
+                                setModelSearchQuery('');
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.dropdownItemText,
+                                  selectedModel?.id === item.id &&
+                                    styles.dropdownItemTextSelected,
+                                ]}
+                              >
+                                {item.name}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        />
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
 
               {/* Özellikler Dropdown */}
               <View style={styles.dropdownContainer}>
@@ -918,6 +1050,10 @@ function ProductDetailScreen({ route, navigation }: Props) {
                 onPress={() => {
                   setSelectedCategory(null);
                   setSelectedBrand(null);
+                  setSelectedModel(null);
+                  setModels([]);
+                  setModelSearchQuery('');
+                  setIsModelDropdownOpen(false);
                 }}
               >
                 <Text style={styles.filterClearButtonText}>Temizle</Text>
@@ -925,22 +1061,25 @@ function ProductDetailScreen({ route, navigation }: Props) {
               <TouchableOpacity
                 style={styles.filterApplyButton}
                 onPress={() => {
-                  // ProductList sayfasına git
                   navigation.navigate('ProductList', {
                     categoryId: selectedCategory?.id,
                     categoryName: selectedCategory?.name,
                     brandId: selectedBrand?.id,
                     brandName: selectedBrand?.name,
+                    modelId: selectedModel?.id,
                   });
 
-                  // Modal'ı kapat ve seçimleri temizle
                   setShowFilterModal(false);
                   setSelectedCategory(null);
                   setSelectedBrand(null);
+                  setSelectedModel(null);
+                  setModels([]);
                   setCategorySearchQuery('');
                   setBrandSearchQuery('');
+                  setModelSearchQuery('');
                   setIsCategoryDropdownOpen(false);
                   setIsBrandDropdownOpen(false);
+                  setIsModelDropdownOpen(false);
                 }}
               >
                 <Text style={styles.filterApplyButtonText}>Uygula</Text>

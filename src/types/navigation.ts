@@ -13,6 +13,7 @@ export type CameraStackParamList = {
     categoryName?: string;
     brandId?: number;
     brandName?: string;
+    modelId?: number;
     searchQuery?: string;
   };
 };

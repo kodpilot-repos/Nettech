@@ -406,6 +406,8 @@ export async function searchProducts(
   stockOption?: string,
   brandId?: number,
   modelId?: number,
+  byStoreStock?: boolean,
+  storeStockLimit?: number,
 ): Promise<ApiResponse<Product[]>> {
   const url = `${API_BASE_URL}/products`;
 
@@ -441,8 +443,8 @@ export async function searchProducts(
       filters: {
         stockStatus: ['active:1'],
         search_compatibles: true,
-        by_store_stock: false,
-        store_stock_limit: 1,
+        by_store_stock: byStoreStock ?? false,
+        store_stock_limit: storeStockLimit ?? 1,
       },
     };
 
@@ -455,7 +457,7 @@ export async function searchProducts(
     }
 
     if (modelId) {
-      requestBody.filters.model_id = modelId;
+      requestBody.filters.model = modelId;
     }
 
     if (stockOption !== undefined && stockOption !== null) {

@@ -114,8 +114,10 @@ function CameraScreen({ navigation }: Props) {
           // ekran X'ine karşılık gelir. Bu dönüşümle ekran koordinatlarına çeviriyoruz.
           const camLong = Math.max(format.videoWidth, format.videoHeight);
           const camShort = Math.min(format.videoWidth, format.videoHeight);
-          centerX = (code.frame.y + code.frame.height / 2) / camShort * SCREEN_WIDTH;
-          centerY = (code.frame.x + code.frame.width / 2) / camLong * SCREEN_HEIGHT;
+          centerX =
+            ((code.frame.y + code.frame.height / 2) / camShort) * SCREEN_WIDTH;
+          centerY =
+            ((code.frame.x + code.frame.width / 2) / camLong) * SCREEN_HEIGHT;
         } else {
           centerX = code.frame.x + code.frame.width / 2;
           centerY = code.frame.y + code.frame.height / 2;

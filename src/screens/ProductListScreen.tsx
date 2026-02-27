@@ -14,15 +14,26 @@ import {
   ActivityIndicator,
   Image,
   TextInput,
+  Modal,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CameraStackParamList } from '../types/navigation';
-import { searchProducts, type Product } from '../services/api';
+import {
+  searchProducts,
+  getBrands,
+  getCategories,
+  getDeviceModels,
+  type Product,
+  type Brand,
+  type Category,
+  type DeviceModel,
+} from '../services/api';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTabBar } from '../context/TabBarContext';
+import fonts from '../theme/fonts';
 
 type Props = NativeStackScreenProps<CameraStackParamList, 'ProductList'>;
 
@@ -32,6 +43,7 @@ function ProductListScreen({ route, navigation }: Props) {
     categoryName,
     brandId,
     brandName,
+    modelId,
     searchQuery: initialSearchQuery,
   } = route.params;
   const insets = useSafeAreaInsets();
@@ -42,12 +54,72 @@ function ProductListScreen({ route, navigation }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery || '');
   const [isSearching, setIsSearching] = useState(false);
-  const [stockOption, setStockOption] = useState<'' | 'stock_in'>('');
 
   // Infinite scroll state'leri
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Aktif filtreler (uygulanan)
+  const [activeCategoryId, setActiveCategoryId] = useState<
+    number | undefined
+  >(categoryId);
+  const [activeBrandId, setActiveBrandId] = useState<number | undefined>(
+    brandId,
+  );
+
+  // Filtre modal state'leri
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingBrands, setIsLoadingBrands] = useState(false);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+    null,
+  );
+  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [brandSearchQuery, setBrandSearchQuery] = useState('');
+
+  // Model state'leri
+  const [models, setModels] = useState<DeviceModel[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<DeviceModel | null>(null);
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
+  const [activeModelId, setActiveModelId] = useState<number | undefined>(modelId);
+
+  // Mağaza stoğu filtresi state'leri
+  const [selectedByStoreStock, setSelectedByStoreStock] = useState(false);
+  const [selectedStoreStockLimit, setSelectedStoreStockLimit] = useState('1');
+  const [activeByStoreStock, setActiveByStoreStock] = useState(false);
+  const [activeStoreStockLimit, setActiveStoreStockLimit] = useState(1);
+
+  const filteredBrands = useMemo(
+    () =>
+      brands.filter(item =>
+        item.name.toLowerCase().includes(brandSearchQuery.toLowerCase()),
+      ),
+    [brands, brandSearchQuery],
+  );
+
+  const filteredCategories = useMemo(
+    () =>
+      categories.filter(item =>
+        item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()),
+      ),
+    [categories, categorySearchQuery],
+  );
+
+  const filteredModels = useMemo(
+    () =>
+      models.filter(item =>
+        item.name.toLowerCase().includes(modelSearchQuery.toLowerCase()),
+      ),
+    [models, modelSearchQuery],
+  );
 
   // Başlık oluştur
   const getTitle = () => {
@@ -72,34 +144,37 @@ function ProductListScreen({ route, navigation }: Props) {
     async (
       query: string = '',
       page: number = 1,
-      currentStockOption: '' | 'stock_in' = '',
+      catId?: number,
+      brId?: number,
+      byStoreStock?: boolean,
+      storeStockLimit?: number,
+      mdlId?: number,
     ) => {
-      // İlk sayfa için ana loading, diğer sayfalar için isLoadingMore kullan
       if (page === 1) {
         setIsLoading(true);
       }
 
       try {
-        // category_id ve brand_id zaten filters içinde backend'e gönderiliyor
         const response = await searchProducts(
           query,
           page,
-          categoryId,
-          currentStockOption,
-          brandId,
+          catId,
+          undefined,
+          brId,
+          mdlId,
+          byStoreStock,
+          storeStockLimit,
         );
 
         if (response.success && response.data) {
-          let filteredProducts = response.data;
+          const filteredProducts = response.data;
 
-          // İlk sayfa ise ürünleri değiştir, değilse ekle
           if (page === 1) {
             setProducts(filteredProducts);
           } else {
             setProducts(prev => [...prev, ...filteredProducts]);
           }
 
-          // Eğer 50'den az ürün geldiyse, daha fazla sayfa yok
           setHasMore(filteredProducts.length === 50);
         } else {
           if (page === 1) {
@@ -119,13 +194,14 @@ function ProductListScreen({ route, navigation }: Props) {
         }
       }
     },
-    [categoryId, brandId, setProducts],
+    [setProducts],
   );
 
   // İlk yükleme
   useEffect(() => {
-    loadProducts(initialSearchQuery, 1, stockOption);
-  }, [categoryId, brandId, initialSearchQuery, loadProducts]); // eslint-disable-line react-hooks/exhaustive-deps
+    loadProducts(initialSearchQuery, 1, activeCategoryId, activeBrandId, undefined, undefined, activeModelId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Daha fazla ürün yükle (infinite scroll)
   const loadMoreProducts = () => {
@@ -133,9 +209,11 @@ function ProductListScreen({ route, navigation }: Props) {
       setIsLoadingMore(true);
       const nextPage = currentPage + 1;
       setCurrentPage(nextPage);
-      loadProducts(searchQuery, nextPage, stockOption).finally(() => {
-        setIsLoadingMore(false);
-      });
+      loadProducts(searchQuery, nextPage, activeCategoryId, activeBrandId, activeByStoreStock, activeStoreStockLimit, activeModelId).finally(
+        () => {
+          setIsLoadingMore(false);
+        },
+      );
     }
   };
 
@@ -144,48 +222,100 @@ function ProductListScreen({ route, navigation }: Props) {
     if (searchQuery.trim().length < 2) {
       setCurrentPage(1);
       setHasMore(true);
-      loadProducts('', 1, stockOption);
+      loadProducts('', 1, activeCategoryId, activeBrandId, activeByStoreStock, activeStoreStockLimit, activeModelId);
       return;
     }
     setIsSearching(true);
     const timeoutId = setTimeout(() => {
       setCurrentPage(1);
       setHasMore(true);
-      loadProducts(searchQuery, 1, stockOption);
+      loadProducts(searchQuery, 1, activeCategoryId, activeBrandId, activeByStoreStock, activeStoreStockLimit, activeModelId);
       setIsSearching(false);
-    }, 500); // 500ms debounce
+    }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, stockOption, loadProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
-  // Stok filtresi değişince yeniden yükle
-  const handleStockOptionChange = (option: '' | 'stock_in') => {
-    setStockOption(option);
-    setCurrentPage(1);
-    setHasMore(true);
-    loadProducts(searchQuery, 1, option);
+  // Markaları yükle
+  const loadBrands = async () => {
+    if (isLoadingBrands) return;
+    setIsLoadingBrands(true);
+    try {
+      const response = await getBrands();
+      if (response.success && response.data) {
+        setBrands(response.data);
+      }
+    } catch (err) {
+      console.error('Brands load error:', err);
+    } finally {
+      setIsLoadingBrands(false);
+    }
+  };
+
+  // Kategorileri yükle
+  const loadCategories = async () => {
+    setIsLoadingCategories(true);
+    try {
+      const response = await getCategories();
+      if (response.success && response.data) {
+        setCategories(response.data);
+      }
+    } catch (err) {
+      console.error('Categories load error:', err);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
+
+  // Modelleri yükle
+  const loadModels = async (brId: number) => {
+    setIsLoadingModels(true);
+    setModels([]);
+    try {
+      const response = await getDeviceModels(brId);
+      if (response.success && response.data) {
+        setModels(response.data);
+      }
+    } catch (err) {
+      console.error('Models load error:', err);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
+  const toggleCategoryDropdown = () => {
+    setIsCategoryDropdownOpen(!isCategoryDropdownOpen);
+    if (categories.length === 0) loadCategories();
+  };
+
+  const toggleBrandDropdown = () => {
+    if (isLoadingBrands) return;
+    setIsBrandDropdownOpen(prev => !prev);
+    if (brands.length === 0) loadBrands();
+  };
+
+  const toggleModelDropdown = () => {
+    if (isLoadingModels) return;
+    setIsModelDropdownOpen(prev => !prev);
   };
 
   // Ürün seçimi
   const handleProductPress = async (product: Product) => {
-    // ProductDetail sayfasına git
     navigation.navigate('ProductDetail', {
       barcode: product.barcode,
     });
   };
 
-  // Scroll handler - aşağı kaydırınca tab bar gizle, yukarı kaydırınca göster
+  // Scroll handler
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const currentScrollY = event.nativeEvent.contentOffset.y;
     const scrollDiff = currentScrollY - lastScrollY.current;
 
-    // Sadece belirli bir eşik değerini geçtikten sonra tepki ver (5px)
     if (Math.abs(scrollDiff) > 5) {
       if (scrollDiff > 0 && currentScrollY > 50) {
-        // Aşağı kaydırılıyor - tab bar'ı gizle
         hideTabBar();
       } else if (scrollDiff < 0) {
-        // Yukarı kaydırılıyor - tab bar'ı göster
         showTabBar();
       }
     }
@@ -253,66 +383,49 @@ function ProductListScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      {/* Arama Input */}
-      <View style={styles.searchContainer}>
-        <Icon name="magnify" size={20} color="#999" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Ürünler içinde ara..."
-          placeholderTextColor="#999"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchQuery('')}
-            style={styles.clearButton}
-          >
-            <Icon name="close" size={20} color="#999" />
-          </TouchableOpacity>
-        )}
-        {isSearching && (
-          <ActivityIndicator
-            size="small"
-            color="#F99D26"
-            style={styles.searchLoader}
+      {/* Arama Input + Filtre Butonu */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchContainer}>
+          <Icon
+            name="magnify"
+            size={20}
+            color="#999"
+            style={styles.searchIcon}
           />
-        )}
-      </View>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Ürünler içinde ara..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              style={styles.clearButton}
+            >
+              <Icon name="close" size={20} color="#999" />
+            </TouchableOpacity>
+          )}
+          {isSearching && (
+            <ActivityIndicator
+              size="small"
+              color="#F99D26"
+              style={styles.searchLoader}
+            />
+          )}
+        </View>
 
-      {/* Stok Filtresi */}
-      <View style={styles.stockFilterContainer}>
+        {/* Filtre Butonu */}
         <TouchableOpacity
-          style={[
-            styles.stockFilterTab,
-            stockOption === '' && styles.stockFilterTabActive,
-          ]}
-          onPress={() => handleStockOptionChange('')}
+          style={styles.filterButton}
+          onPress={() => {
+            setShowFilterModal(true);
+            if (brands.length === 0) loadBrands();
+            if (categories.length === 0) loadCategories();
+          }}
         >
-          <Text
-            style={[
-              styles.stockFilterTabText,
-              stockOption === '' && styles.stockFilterTabTextActive,
-            ]}
-          >
-            Tüm Stoklar
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.stockFilterTab,
-            stockOption === 'stock_in' && styles.stockFilterTabActive,
-          ]}
-          onPress={() => handleStockOptionChange('stock_in')}
-        >
-          <Text
-            style={[
-              styles.stockFilterTabText,
-              stockOption === 'stock_in' && styles.stockFilterTabTextActive,
-            ]}
-          >
-            Kendi Stoklarım
-          </Text>
+          <Icon name="filter" size={22} color="#666" />
         </TouchableOpacity>
       </View>
 
@@ -358,6 +471,375 @@ function ProductListScreen({ route, navigation }: Props) {
           }
         />
       )}
+
+      {/* Filtre Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.filterModal}>
+            {/* Modal Header */}
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Filtreler</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                <Icon name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.filterModalContent}>
+              {/* Kategori Dropdown */}
+              <View style={styles.dropdownContainer}>
+                <TouchableOpacity
+                  style={styles.dropdownHeader}
+                  onPress={toggleCategoryDropdown}
+                >
+                  <Text style={styles.dropdownHeaderText}>
+                    Kategori{' '}
+                    {selectedCategory && `(${selectedCategory.name})`}
+                  </Text>
+                  <Icon
+                    name={
+                      isCategoryDropdownOpen ? 'chevron-up' : 'chevron-down'
+                    }
+                    size={20}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+
+                {isCategoryDropdownOpen && (
+                  <View style={styles.dropdownContent}>
+                    <View style={styles.dropdownSearchContainer}>
+                      <Icon
+                        name="magnify"
+                        size={18}
+                        color="#999"
+                        style={styles.dropdownSearchIcon}
+                      />
+                      <TextInput
+                        style={styles.dropdownSearchInput}
+                        placeholder="Kategori ara..."
+                        placeholderTextColor="#999"
+                        value={categorySearchQuery}
+                        onChangeText={setCategorySearchQuery}
+                      />
+                    </View>
+                    {isLoadingCategories ? (
+                      <View style={styles.dropdownLoading}>
+                        <ActivityIndicator size="small" color="#F99D26" />
+                        <Text style={styles.dropdownLoadingText}>
+                          Yükleniyor...
+                        </Text>
+                      </View>
+                    ) : filteredCategories.length === 0 ? (
+                      <Text style={styles.dropdownEmptyText}>
+                        Kategori bulunamadı
+                      </Text>
+                    ) : (
+                      <FlatList
+                        data={filteredCategories}
+                        keyExtractor={item => item.id.toString()}
+                        style={styles.dropdownItemsScroll}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                        keyboardShouldPersistTaps="handled"
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            style={[
+                              styles.dropdownItem,
+                              selectedCategory?.id === item.id &&
+                                styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => {
+                              setSelectedCategory(item);
+                              setIsCategoryDropdownOpen(false);
+                              setCategorySearchQuery('');
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                selectedCategory?.id === item.id &&
+                                  styles.dropdownItemTextSelected,
+                              ]}
+                            >
+                              {item.name}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      />
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* Marka Dropdown */}
+              <View style={styles.dropdownContainer}>
+                <TouchableOpacity
+                  style={styles.dropdownHeader}
+                  onPress={toggleBrandDropdown}
+                  disabled={isLoadingBrands}
+                >
+                  <Text style={styles.dropdownHeaderText}>
+                    Marka {selectedBrand && `(${selectedBrand.name})`}
+                  </Text>
+                  <Icon
+                    name={isBrandDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+
+                {isBrandDropdownOpen && (
+                  <View style={styles.dropdownContent}>
+                    <View style={styles.dropdownSearchContainer}>
+                      <Icon
+                        name="magnify"
+                        size={18}
+                        color="#999"
+                        style={styles.dropdownSearchIcon}
+                      />
+                      <TextInput
+                        style={styles.dropdownSearchInput}
+                        placeholder="Marka ara..."
+                        placeholderTextColor="#999"
+                        value={brandSearchQuery}
+                        onChangeText={setBrandSearchQuery}
+                      />
+                    </View>
+                    {isLoadingBrands ? (
+                      <View style={styles.dropdownLoading}>
+                        <ActivityIndicator size="small" color="#F99D26" />
+                        <Text style={styles.dropdownLoadingText}>
+                          Yükleniyor...
+                        </Text>
+                      </View>
+                    ) : filteredBrands.length === 0 ? (
+                      <Text style={styles.dropdownEmptyText}>
+                        Marka bulunamadı
+                      </Text>
+                    ) : (
+                      <FlatList
+                        data={filteredBrands}
+                        keyExtractor={item => item.id.toString()}
+                        style={styles.dropdownItemsScroll}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                        keyboardShouldPersistTaps="handled"
+                        renderItem={({ item }) => (
+                          <TouchableOpacity
+                            style={[
+                              styles.dropdownItem,
+                              selectedBrand?.id === item.id &&
+                                styles.dropdownItemSelected,
+                            ]}
+                            onPress={() => {
+                              setSelectedBrand(item);
+                              setIsBrandDropdownOpen(false);
+                              setBrandSearchQuery('');
+                              setSelectedModel(null);
+                              setModels([]);
+                              setIsModelDropdownOpen(false);
+                              setModelSearchQuery('');
+                              loadModels(item.id);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                selectedBrand?.id === item.id &&
+                                  styles.dropdownItemTextSelected,
+                              ]}
+                            >
+                              {item.name}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      />
+                    )}
+                  </View>
+                )}
+              </View>
+              {/* Model Dropdown - sadece marka seçiliyse göster */}
+              {selectedBrand && (
+                <View style={styles.dropdownContainer}>
+                  <TouchableOpacity
+                    style={styles.dropdownHeader}
+                    onPress={toggleModelDropdown}
+                    disabled={isLoadingModels}
+                  >
+                    <Text style={styles.dropdownHeaderText}>
+                      Model {selectedModel && `(${selectedModel.name})`}
+                    </Text>
+                    {isLoadingModels ? (
+                      <ActivityIndicator size="small" color="#F99D26" />
+                    ) : (
+                      <Icon
+                        name={isModelDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                        size={20}
+                        color="#666"
+                      />
+                    )}
+                  </TouchableOpacity>
+
+                  {isModelDropdownOpen && (
+                    <View style={styles.dropdownContent}>
+                      <View style={styles.dropdownSearchContainer}>
+                        <Icon
+                          name="magnify"
+                          size={18}
+                          color="#999"
+                          style={styles.dropdownSearchIcon}
+                        />
+                        <TextInput
+                          style={styles.dropdownSearchInput}
+                          placeholder="Model ara..."
+                          placeholderTextColor="#999"
+                          value={modelSearchQuery}
+                          onChangeText={setModelSearchQuery}
+                        />
+                      </View>
+                      {isLoadingModels ? (
+                        <View style={styles.dropdownLoading}>
+                          <ActivityIndicator size="small" color="#F99D26" />
+                          <Text style={styles.dropdownLoadingText}>
+                            Yükleniyor...
+                          </Text>
+                        </View>
+                      ) : filteredModels.length === 0 ? (
+                        <Text style={styles.dropdownEmptyText}>
+                          Model bulunamadı
+                        </Text>
+                      ) : (
+                        <FlatList
+                          data={filteredModels}
+                          keyExtractor={item => item.id.toString()}
+                          style={styles.dropdownItemsScroll}
+                          nestedScrollEnabled={true}
+                          showsVerticalScrollIndicator={true}
+                          keyboardShouldPersistTaps="handled"
+                          renderItem={({ item }) => (
+                            <TouchableOpacity
+                              style={[
+                                styles.dropdownItem,
+                                selectedModel?.id === item.id &&
+                                  styles.dropdownItemSelected,
+                              ]}
+                              onPress={() => {
+                                setSelectedModel(item);
+                                setIsModelDropdownOpen(false);
+                                setModelSearchQuery('');
+                              }}
+                            >
+                              <Text
+                                style={[
+                                  styles.dropdownItemText,
+                                  selectedModel?.id === item.id &&
+                                    styles.dropdownItemTextSelected,
+                                ]}
+                              >
+                                {item.name}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
+                        />
+                      )}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Mağaza Stoğu Filtresi */}
+              <View style={styles.storeStockContainer}>
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setSelectedByStoreStock(prev => !prev)}
+                  activeOpacity={0.7}
+                >
+                  <Icon
+                    name={selectedByStoreStock ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                    size={22}
+                    color={selectedByStoreStock ? '#F99D26' : '#999'}
+                  />
+                  <Text style={styles.checkboxLabel}>Mağaza stoğumda ara</Text>
+                </TouchableOpacity>
+                {selectedByStoreStock && (
+                  <View style={styles.stockLimitRow}>
+                    <Text style={styles.stockLimitLabel}>Minimum stok adedi:</Text>
+                    <TextInput
+                      style={styles.stockLimitInput}
+                      value={selectedStoreStockLimit}
+                      onChangeText={text => {
+                        const numeric = text.replace(/[^0-9]/g, '');
+                        setSelectedStoreStockLimit(numeric === '' ? '1' : numeric);
+                      }}
+                      keyboardType="numeric"
+                      maxLength={4}
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* Modal Footer */}
+            <View style={styles.filterModalFooter}>
+              <TouchableOpacity
+                style={styles.filterClearButton}
+                onPress={() => {
+                  setSelectedCategory(null);
+                  setSelectedBrand(null);
+                  setSelectedModel(null);
+                  setModels([]);
+                  setModelSearchQuery('');
+                  setIsModelDropdownOpen(false);
+                  setSelectedByStoreStock(false);
+                  setSelectedStoreStockLimit('1');
+                  setActiveCategoryId(categoryId);
+                  setActiveBrandId(brandId);
+                  setActiveModelId(undefined);
+                  setActiveByStoreStock(false);
+                  setActiveStoreStockLimit(1);
+                  setCurrentPage(1);
+                  setHasMore(true);
+                  loadProducts(searchQuery, 1, categoryId, brandId, false, 1, undefined);
+                  setShowFilterModal(false);
+                }}
+              >
+                <Text style={styles.filterClearButtonText}>Temizle</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.filterApplyButton}
+                onPress={() => {
+                  const newCatId = selectedCategory?.id;
+                  const newBrId = selectedBrand?.id;
+                  const newMdlId = selectedModel?.id;
+                  const newByStoreStock = selectedByStoreStock;
+                  const newStoreStockLimit = parseInt(selectedStoreStockLimit, 10) || 1;
+                  setActiveCategoryId(newCatId);
+                  setActiveBrandId(newBrId);
+                  setActiveModelId(newMdlId);
+                  setActiveByStoreStock(newByStoreStock);
+                  setActiveStoreStockLimit(newStoreStockLimit);
+                  setCurrentPage(1);
+                  setHasMore(true);
+                  loadProducts(searchQuery, 1, newCatId, newBrId, newByStoreStock, newStoreStockLimit, newMdlId);
+                  setShowFilterModal(false);
+                  setCategorySearchQuery('');
+                  setBrandSearchQuery('');
+                  setModelSearchQuery('');
+                  setIsCategoryDropdownOpen(false);
+                  setIsBrandDropdownOpen(false);
+                  setIsModelDropdownOpen(false);
+                }}
+              >
+                <Text style={styles.filterApplyButtonText}>Uygula</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -392,20 +874,24 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginTop: 2,
   },
-  searchContainer: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    gap: 8,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
     borderRadius: 8,
     paddingHorizontal: 12,
-    height: 48,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    height: 44,
   },
   searchIcon: {
     marginRight: 8,
@@ -415,6 +901,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
     paddingVertical: 0,
+    fontFamily: fonts.regular,
   },
   clearButton: {
     padding: 4,
@@ -422,6 +909,14 @@ const styles = StyleSheet.create({
   },
   searchLoader: {
     marginLeft: 8,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingContainer: {
     flex: 1,
@@ -433,6 +928,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#666',
+    fontFamily: fonts.regular,
   },
   emptyContainer: {
     flex: 1,
@@ -537,32 +1033,192 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
   },
-  stockFilterContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  stockFilterTab: {
+  // Filter Modal Styles
+  modalOverlay: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  stockFilterTabActive: {
-    backgroundColor: '#F99D26',
+  filterModal: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    width: '100%',
+    height: '80%',
+    marginTop: 'auto',
   },
-  stockFilterTabText: {
-    fontSize: 13,
-    fontWeight: '600',
+  filterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  filterModalTitle: {
+    fontSize: 18,
+    fontFamily: fonts.bold,
+    color: '#333',
+  },
+  filterModalContent: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  dropdownContainer: {
+    marginBottom: 16,
+    borderRadius: 12,
+    backgroundColor: '#f8f9fa',
+    overflow: 'hidden',
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+  },
+  dropdownHeaderText: {
+    fontSize: 16,
+    fontFamily: fonts.semiBold,
+    color: '#333',
+    flex: 1,
+  },
+  dropdownContent: {
+    backgroundColor: '#fff',
+    maxHeight: 300,
+  },
+  dropdownSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    marginTop: 4,
+    paddingHorizontal: 12,
+    height: 40,
+  },
+  dropdownSearchIcon: {
+    marginRight: 8,
+  },
+  dropdownSearchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+    padding: 0,
+    fontFamily: fonts.regular,
+  },
+  dropdownItemsScroll: {
+    maxHeight: 200,
+  },
+  dropdownLoading: {
+    padding: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  dropdownLoadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+    fontFamily: fonts.regular,
+  },
+  dropdownEmptyText: {
+    padding: 20,
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    fontFamily: fonts.regular,
+  },
+  dropdownItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  dropdownItemSelected: {
+    backgroundColor: '#FFF8E1',
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: '#333',
+    fontFamily: fonts.regular,
+  },
+  dropdownItemTextSelected: {
+    color: '#F99D26',
+    fontFamily: fonts.semiBold,
+  },
+  filterModalFooter: {
+    flexDirection: 'row',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    gap: 12,
+  },
+  filterClearButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+  },
+  filterClearButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.semiBold,
     color: '#666',
   },
-  stockFilterTabTextActive: {
+  filterApplyButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: '#F99D26',
+    alignItems: 'center',
+  },
+  filterApplyButtonText: {
+    fontSize: 16,
+    fontFamily: fonts.semiBold,
     color: '#fff',
+  },
+  storeStockContainer: {
+    marginBottom: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    fontFamily: fonts.semiBold,
+    color: '#333',
+    marginLeft: 10,
+  },
+  stockLimitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  stockLimitLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fonts.regular,
+    color: '#666',
+  },
+  stockLimitInput: {
+    width: 72,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    textAlign: 'center',
+    fontSize: 16,
+    fontFamily: fonts.semiBold,
+    color: '#333',
   },
 });
 

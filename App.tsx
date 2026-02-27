@@ -9,6 +9,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
+import BootSplash from 'react-native-bootsplash';
 import messaging from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 import BottomTabNavigator from './src/navigation/BottomTabNavigator';
@@ -116,7 +117,9 @@ function App() {
               backgroundColor="#000"
               translucent={false}
             />
-            <NavigationContainer>
+            <NavigationContainer
+              onReady={() => BootSplash.hide({ fade: true })}
+            >
               <BottomTabNavigator />
             </NavigationContainer>
           </SafeAreaProvider>

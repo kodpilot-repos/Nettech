@@ -11,10 +11,12 @@
 		13382D8A4BAA43569178C402 /* PublicSans-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8B07375D75CF45A18C98EE5B /* PublicSans-SemiBold.ttf */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		2F1A21D167DA14D1266DD4D9 /* Pods_Nettech.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 179F0563232329ADDD7EE19A /* Pods_Nettech.framework */; };
+		5DB5CF7315204FA0BF950D1A /* Colors.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 37A51ACA7B1B474BA961ADDB /* Colors.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		7679E90CE11B458099181B2D /* PublicSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 02ACB3F9BB19495794B314E2 /* PublicSans-Bold.ttf */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		85E502D234F27D4A59DA8E6F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		8DBCEFD59FF64F29A4A657F0 /* BootSplash.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 8D872DD611D140B88BB0C1F0 /* BootSplash.storyboard */; };
 		923EE4D143854E5A96627A53 /* PublicSans-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A56AD8487F224AD3A2439CDB /* PublicSans-ExtraBold.ttf */; };
 		CD1093E12EFD314C00980EF9 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = CD1093E02EFD314C00980EF9 /* GoogleService-Info.plist */; };
 		DDBAB8153AB141E398DDD718 /* PublicSans-Thin.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3A76A4E082F64133A9106963 /* PublicSans-Thin.ttf */; };
@@ -30,12 +32,14 @@
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = Nettech/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		179F0563232329ADDD7EE19A /* Pods_Nettech.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Nettech.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2349C73A604F476DAAB15345 /* PublicSans-Medium.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "PublicSans-Medium.ttf"; path = "../assets/fonts/PublicSans-Medium.ttf"; sourceTree = "<group>"; };
+		37A51ACA7B1B474BA961ADDB /* Colors.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Colors.xcassets; path = Nettech/Colors.xcassets; sourceTree = "<group>"; };
 		3A76A4E082F64133A9106963 /* PublicSans-Thin.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "PublicSans-Thin.ttf"; path = "../assets/fonts/PublicSans-Thin.ttf"; sourceTree = "<group>"; };
 		67CD5128507EB7866DD97752 /* Pods-Nettech.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Nettech.release.xcconfig"; path = "Target Support Files/Pods-Nettech/Pods-Nettech.release.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Nettech/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Nettech/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8625D74E1101F417E9C45A27 /* Pods-Nettech.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Nettech.debug.xcconfig"; path = "Target Support Files/Pods-Nettech/Pods-Nettech.debug.xcconfig"; sourceTree = "<group>"; };
 		8B07375D75CF45A18C98EE5B /* PublicSans-SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "PublicSans-SemiBold.ttf"; path = "../assets/fonts/PublicSans-SemiBold.ttf"; sourceTree = "<group>"; };
+		8D872DD611D140B88BB0C1F0 /* BootSplash.storyboard */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = BootSplash.storyboard; path = Nettech/BootSplash.storyboard; sourceTree = "<group>"; };
 		9286BE890E48410395EE566A /* PublicSans-Light.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "PublicSans-Light.ttf"; path = "../assets/fonts/PublicSans-Light.ttf"; sourceTree = "<group>"; };
 		A41B6CDC28AB44CFAB1CE178 /* PublicSans-Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "PublicSans-Regular.ttf"; path = "../assets/fonts/PublicSans-Regular.ttf"; sourceTree = "<group>"; };
 		A56AD8487F224AD3A2439CDB /* PublicSans-ExtraBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "PublicSans-ExtraBold.ttf"; path = "../assets/fonts/PublicSans-ExtraBold.ttf"; sourceTree = "<group>"; };
@@ -65,6 +69,8 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				8D872DD611D140B88BB0C1F0 /* BootSplash.storyboard */,
+				37A51ACA7B1B474BA961ADDB /* Colors.xcassets */,
 			);
 			name = Nettech;
 			sourceTree = "<group>";
@@ -204,6 +210,8 @@
 				CD1093E12EFD314C00980EF9 /* GoogleService-Info.plist in Resources */,
 				13382D8A4BAA43569178C402 /* PublicSans-SemiBold.ttf in Resources */,
 				DDBAB8153AB141E398DDD718 /* PublicSans-Thin.ttf in Resources */,
+				8DBCEFD59FF64F29A4A657F0 /* BootSplash.storyboard in Resources */,
+				5DB5CF7315204FA0BF950D1A /* Colors.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -20,22 +20,22 @@ import { CartProvider } from './src/context/CartContext';
 function App() {
   useEffect(() => {
     // Request notification permission
-    async function requestUserPermission() {
-      const authStatus = await messaging().requestPermission();
-      const enabled =
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+    // async function requestUserPermission() {
+    //   const authStatus = await messaging().requestPermission();
+    //   const enabled =
+    //     authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+    //     authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
-      if (enabled) {
-        console.log('Authorization status:', authStatus);
+    //   if (enabled) {
+    //     console.log('Authorization status:', authStatus);
 
-        // Get FCM token
-        const token = await messaging().getToken();
-        console.log('FCM Token:', token);
-      }
-    }
+    //     // Get FCM token
+    //     const token = await messaging().getToken();
+    //     console.log('FCM Token:', token);
+    //   }
+    // }
 
-    requestUserPermission();
+    // requestUserPermission();
 
     // Foreground message handler
     const unsubscribe = messaging().onMessage(async remoteMessage => {
